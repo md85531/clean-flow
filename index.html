@@ -50,10 +50,9 @@
 
   /* ---- Daily ring summary ---- */
   .daycard{background:var(--surface); border:1px solid var(--line); border-radius:22px; padding:18px; box-shadow:var(--shadow); display:flex; align-items:center; gap:18px; margin-bottom:16px;}
-  .ringwrap{position:relative; width:84px; height:84px; flex-shrink:0;}
-  .ringwrap .lbl{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;}
-  .ringwrap .lbl b{font-family:'Bricolage Grotesque',sans-serif; font-size:22px; line-height:1;}
-  .ringwrap .lbl span{font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin-top:2px;}
+  .countbadge{width:84px; height:84px; border-radius:50%; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:radial-gradient(circle at 50% 32%, #ECF4EE, #DAEADF); border:1px solid var(--sage-soft);}
+  .countbadge b{font-family:'Bricolage Grotesque',sans-serif; font-size:36px; line-height:1; color:var(--sage-deep);}
+  .countbadge span{font-size:8.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; margin-top:4px;}
   .daytext h3{margin:0; font-family:'Bricolage Grotesque',sans-serif; font-size:17px; font-weight:700;}
   .daytext p{margin:4px 0 0; color:var(--muted); font-size:13px;}
 
@@ -171,6 +170,22 @@
   .reset-area .fill{background:linear-gradient(90deg,var(--coral),#F4A878);}
   .reset-area.complete .fill{background:linear-gradient(90deg,var(--sage),#6BA888);}
 
+  /* ---- Monthly Deep Clean (calm blue accent) ---- */
+  .deepcard{background:var(--surface); border:1px solid var(--line); border-radius:20px; padding:15px 16px; box-shadow:var(--shadow); margin-bottom:16px; position:relative; overflow:hidden;}
+  .deepcard.due{background:linear-gradient(135deg,#F3F6FB,#FFFFFF); border-color:#D9E2EF; box-shadow:0 6px 20px rgba(94,124,154,.13);}
+  .deepcard.done{background:linear-gradient(135deg,#F6FBF7,#FFFFFF); border-color:var(--sage-soft);}
+  .deep-ic{width:42px; height:42px; border-radius:13px; background:#E4EAF1; display:flex; align-items:center; justify-content:center; font-size:21px; flex-shrink:0;}
+  .deepcard.done .deep-ic{background:var(--sage-soft);}
+  .deep-fill{height:100%; background:linear-gradient(90deg,#5E7C9A,#88A4C1); border-radius:999px; transition:width .5s cubic-bezier(.4,0,.2,1);}
+  .deepcard.done .deep-fill{background:linear-gradient(90deg,var(--sage),#6BA888);}
+  .deepcard.due .reset-badge{color:#4E6B86;}
+  .deep-cta{width:100%; border:none; border-radius:13px; padding:12px; font-family:'Inter',sans-serif; font-weight:600; font-size:14px; cursor:pointer; color:#fff; background:var(--ink); transition:.15s;}
+  .deepcard.due .deep-cta{background:#5E7C9A; box-shadow:0 4px 12px rgba(94,124,154,.28);}
+  .deep-cta:active{transform:scale(.98);}
+  .deep-area{border-color:#D9E2EF;}
+  .deep-area .fill{background:linear-gradient(90deg,#5E7C9A,#88A4C1);}
+  .deep-area.complete .fill{background:linear-gradient(90deg,var(--sage),#6BA888);}
+
   /* confetti canvas */
   #confetti{position:fixed; inset:0; pointer-events:none; z-index:50;}
 
@@ -204,15 +219,7 @@
   </div>
 
   <div class="daycard">
-    <div class="ringwrap">
-      <svg width="84" height="84" viewBox="0 0 84 84">
-        <circle cx="42" cy="42" r="36" fill="none" stroke="var(--bg2)" stroke-width="9"/>
-        <circle id="dayRing" cx="42" cy="42" r="36" fill="none" stroke="var(--sage)" stroke-width="9"
-          stroke-linecap="round" stroke-dasharray="226.2" stroke-dashoffset="226.2"
-          transform="rotate(-90 42 42)" style="transition:stroke-dashoffset .6s cubic-bezier(.4,0,.2,1);"/>
-      </svg>
-      <div class="lbl"><b id="dayPct">0%</b><span>today</span></div>
-    </div>
+    <div class="countbadge"><b id="dayCount">0</b><span>done today</span></div>
     <div class="daytext">
       <h3 id="dayHead">Fresh start</h3>
       <p id="daySub">Nothing done yet — and that's totally fine. Pick a tiny win below.</p>
@@ -220,6 +227,8 @@
   </div>
 
   <div id="resetCard"></div>
+
+  <div id="deepCard"></div>
 
   <div class="modeswitch">
     <div class="glider" id="glider"></div>
@@ -298,10 +307,28 @@ function defaultReset(){
     t('Check the fridge, toss old food',5),
   ];
 }
+function defaultDeep(){
+  return [
+    t('Wipe baseboards & door frames',20),
+    t('Clean inside the microwave',10),
+    t('Degrease stovetop & range hood',15),
+    t('Wipe cabinet fronts & handles',12),
+    t('Clear & wipe the fridge shelves',20),
+    t('Scrub bathroom tile & grout',20),
+    t('Descale showerheads & faucets',12),
+    t('Wash bath mats & shower curtain',10),
+    t('Dust ceiling fans & light fixtures',15),
+    t('Clean windows & mirrors',18),
+    t('Vacuum under furniture & cushions',20),
+    t('Launder all the bedding',10),
+    t('Wipe walls & light switches',12),
+  ];
+}
 let _tid=0;
 function t(name,min){ return {id:'t'+(Date.now()%100000)+(_tid++), name, min, done:false}; }
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
 function sundayKey(){ const d=new Date(); d.setDate(d.getDate()-d.getDay()); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function monthKey(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1); }
 function daysSince(str){ if(!str) return null; const a=new Date(str), b=new Date(todayStr()); return Math.round((b-a)/86400000); }
 
 /* ============ STATE ============ */
@@ -320,19 +347,27 @@ async function init(){
   const saved = await Store.get();
   if(saved && saved.areas){
     S = saved;
-    if(!S.reset){ S.reset = defaultReset(); S.resetWeek = sundayKey(); }
+    if(!S.reset){ S.reset = defaultReset(); S.resetWeek = sundayKey(); S.lastReset=null; }
+    if(!S.deep){ S.deep = defaultDeep(); S.deepMonth = monthKey(); S.lastDeep=null; }
+    if(S.todayCount==null) S.todayCount=0;
   } else {
-    S = { areas:defaultAreas(), reset:defaultReset(), streak:0, points:0, lastDay:todayStr(), lastActiveDay:null, resetWeek:sundayKey(), lastReset:null };
+    S = { areas:defaultAreas(), reset:defaultReset(), deep:defaultDeep(), streak:0, points:0, lastDay:todayStr(), lastActiveDay:null, resetWeek:sundayKey(), lastReset:null, deepMonth:monthKey(), lastDeep:null, todayCount:0 };
   }
-  // daily reset (room tasks)
+  // daily reset (room tasks + today's tally)
   if(S.lastDay !== todayStr()){
     S.areas.forEach(a=>a.tasks.forEach(tk=>tk.done=false));
     S.lastDay = todayStr();
+    S.todayCount = 0;
   }
-  // weekly reset (Sunday Reset checklist) — rolls over each Sunday
+  // weekly reset (Sunday Reset) — rolls over each Sunday
   if(S.resetWeek !== sundayKey()){
     S.reset.forEach(tk=>tk.done=false);
     S.resetWeek = sundayKey();
+  }
+  // monthly reset (Deep Clean) — rolls over each calendar month
+  if(S.deepMonth !== monthKey()){
+    S.deep.forEach(tk=>tk.done=false);
+    S.deepMonth = monthKey();
   }
   await save();
   render();
@@ -347,6 +382,7 @@ function areaProgress(a){ if(!a.tasks.length) return 0; return a.tasks.filter(t=
 function findTask(areaId,taskId){ const a=S.areas.find(x=>x.id===areaId); if(!a) return null; const tk=a.tasks.find(x=>x.id===taskId); return tk?{area:a,task:tk}:null; }
 function getTask(areaId,taskId){
   if(areaId==='reset'){ const tk=S.reset.find(x=>x.id===taskId); return tk?{area:{id:'reset',name:'Sunday Reset',emoji:'🗓️'},task:tk}:null; }
+  if(areaId==='deep'){ const tk=S.deep.find(x=>x.id===taskId); return tk?{area:{id:'deep',name:'Deep Clean',emoji:'🧽'},task:tk}:null; }
   return findTask(areaId,taskId);
 }
 
@@ -355,6 +391,8 @@ function pickTask(preferQuick){
   let pool;
   if(focusScope==='reset'){
     pool = S.reset.filter(tk=>!tk.done).map(tk=>({area:{id:'reset',name:'Sunday Reset',emoji:'🗓️'},task:tk}));
+  } else if(focusScope==='deep'){
+    pool = S.deep.filter(tk=>!tk.done).map(tk=>({area:{id:'deep',name:'Deep Clean',emoji:'🧽'},task:tk}));
   } else {
     pool = allTasks().filter(x=>!x.task.done);
     if(focusScope) pool = pool.filter(x=>x.area.id===focusScope);
@@ -376,6 +414,7 @@ function pickTask(preferQuick){
 function render(){
   renderHeader();
   renderReset();
+  renderDeep();
   if(mode==='focus') renderFocus(); else renderOverview();
 }
 
@@ -412,6 +451,40 @@ function renderReset(){
 
 function startReset(){ focusScope='reset'; currentTask=null; skipped=[]; setMode('focus'); }
 
+function renderDeep(){
+  const el=document.getElementById('deepCard');
+  const dt=S.deep.length, dd=S.deep.filter(t=>t.done).length;
+  const allDone = dt>0 && dd===dt;
+  const pct = dt?Math.round(dd/dt*100):0;
+  const inProgress = dd>0 && !allDone;
+  const since = daysSince(S.lastDeep);
+  const dayOfMonth = new Date().getDate();
+  // gentle: only emphasize in the back half of the month if not finished
+  const due = !allDone && dayOfMonth>=15;
+
+  let badge, sub, cta;
+  if(allDone){
+    badge='Done this month'; sub='Deep clean handled — your place is genuinely fresh.'; cta='Review deep clean';
+  } else if(inProgress){
+    badge='Monthly Deep Clean'; sub=`${dd} of ${dt} done — chip away anytime this month.`; cta='Continue deep clean';
+  } else {
+    badge='Monthly Deep Clean'; sub=(since!=null?`Last done ${since===0?'today':since+(since===1?' day':' days')+' ago'} — a few this month keeps it easy.`:'Bigger monthly jobs — spread them across the month.'); cta='Start deep clean';
+  }
+
+  el.innerHTML=`<div class="deepcard ${due?'due':''} ${allDone?'done':''}">
+    <div class="resetcard-row">
+      <div class="deep-ic">🧽</div>
+      <div class="reset-body">
+        <div class="reset-badge">${badge}</div>
+        <div class="reset-sub">${sub}</div>
+      </div>
+    </div>
+    <div class="reset-bar"><div class="deep-fill" style="width:${pct}%"></div></div>
+    <button class="deep-cta" onclick="startDeep()">${cta} →</button>
+  </div>`;
+}
+function startDeep(){ focusScope='deep'; currentTask=null; skipped=[]; setMode('focus'); }
+
 function renderHeader(){
   const h=new Date().getHours();
   const part = h<5?'Late night':h<12?'Good morning':h<17?'Good afternoon':h<22?'Good evening':'Winding down';
@@ -419,18 +492,13 @@ function renderHeader(){
   document.getElementById('streakN').innerHTML = S.streak + '🌱';
   document.getElementById('pointsN').textContent = S.points;
 
-  const done=doneCount(), total=totalCount();
-  const pct = total? Math.round(done/total*100):0;
-  const ring=document.getElementById('dayRing');
-  const circ=226.2;
-  ring.style.strokeDashoffset = circ - circ*(pct/100);
-  ring.setAttribute('stroke', pct>=100?'var(--gold)':'var(--sage)');
-  document.getElementById('dayPct').textContent = pct+'%';
+  const n = S.todayCount||0;
+  document.getElementById('dayCount').textContent = n;
 
   const dh=document.getElementById('dayHead'), ds=document.getElementById('daySub');
-  if(done===0){ dh.textContent='Fresh start'; ds.textContent="Nothing done yet — and that's fine. Pick one tiny win."; document.getElementById('subgreet').textContent='One small thing at a time.';}
-  else if(pct>=100){ dh.textContent='All clear! ✨'; ds.textContent="Every area is fresh. Go enjoy the space you made."; }
-  else { dh.textContent=done+(done===1?' thing done':' things done'); ds.textContent='Real momentum. Keep it rolling whenever you like.'; }
+  if(n===0){ dh.textContent='Fresh start'; ds.textContent="Nothing done yet — and that's fine. One tiny win is plenty."; document.getElementById('subgreet').textContent='One small thing at a time.'; }
+  else if(n===1){ dh.textContent='1 done today'; ds.textContent="That counts — truly. Stop here or keep rolling."; }
+  else { dh.textContent=n+' done today'; ds.textContent='Lovely momentum. Every single one is a real win.'; }
 }
 
 /* ============ FOCUS VIEW ============ */
@@ -444,10 +512,15 @@ function renderFocus(){
 
   if(!currentTask){
     const reset = focusScope==='reset';
+    const deep = focusScope==='deep';
+    let em='🌿', head='You did it', body='Everything on your list is handled. That is a genuinely good day.';
+    if(reset){ em='🗓️'; head='Reset complete'; body='The week is set up to feel calm. That is the whole point — enjoy the fresh start.'; }
+    else if(deep){ em='🧽'; head='Deep clean done'; body='The big monthly jobs are handled. Your place is genuinely fresh — no small thing.'; }
+    else if(focusScope){ head='This area is done'; body='Nice work clearing this space. Want to tackle another area?'; }
     fv.innerHTML = `<div class="alldone">
-      <div class="em">${reset?'🗓️':'🌿'}</div>
-      <h2>${reset?'Reset complete':(focusScope?'This area is done':'You did it')}</h2>
-      <p>${reset?'The week is set up to feel calm. That is the whole point — enjoy the fresh start.':(focusScope?'Nice work clearing this space. Want to tackle another area?':'Everything on your list is handled. That is a genuinely good day.')}</p>
+      <div class="em">${em}</div>
+      <h2>${head}</h2>
+      <p>${body}</p>
       ${(focusScope)?'<div class="actions" style="margin-top:18px"><button class="btn-minor" onclick="clearScope()">Back to all tasks</button></div>':''}
     </div>`;
     return;
@@ -472,7 +545,7 @@ function renderFocus(){
       </div>
 
       <div class="presets" id="presets">
-        ${[5,10,15,25].map(m=>`<button class="preset ${m===Math.round(timerTotal/60)?'on':''}" onclick="setTimer(${m})">${m}m</button>`).join('')}
+        ${[5,10,15,20,25].map(m=>`<button class="preset ${m===Math.round(timerTotal/60)?'on':''}" onclick="setTimer(${m})">${m}m</button>`).join('')}
       </div>
       <div class="timerbtns">
         <button class="tbtn" id="tToggle" onclick="toggleTimer()">▶ Start</button>
@@ -490,7 +563,7 @@ function renderFocus(){
 
       ${breakdownOpen?renderBreakdown(task,micros):''}
 
-      <p class="scope-note">${focusScope==='reset'?`<b>🗓️ Sunday Reset</b> in progress. <button onclick="clearScope()">Switch to rooms</button>`:(focusScope?`Focusing on <b>${area.name}</b>. <button onclick="clearScope()">Clear all areas</button>`:`Pulling from every area. <button onclick="setMode('overview')">Choose one area</button>`)}</p>
+      <p class="scope-note">${focusScope==='reset'?`<b>🗓️ Sunday Reset</b> in progress. <button onclick="clearScope()">Switch to rooms</button>`:(focusScope==='deep'?`<b>🧽 Monthly Deep Clean</b> in progress. <button onclick="clearScope()">Switch to rooms</button>`:(focusScope?`Focusing on <b>${area.name}</b>. <button onclick="clearScope()">Clear all areas</button>`:`Pulling from every area. <button onclick="setMode('overview')">Choose one area</button>`))}</p>
     </div>`;
   updateTimerUI();
 }
@@ -521,6 +594,8 @@ function renderOverview(){
   // editable Sunday Reset checklist
   const rd=S.reset.filter(t=>t.done).length, rt=S.reset.length;
   const rp=rt?rd/rt:0;
+  const dd=S.deep.filter(t=>t.done).length, dt=S.deep.length;
+  const dp=dt?dd/dt:0;
   html += `<div class="area reset-area ${S._resetOpen?'open':''} ${rp>=1&&rt>0?'complete':''}" id="resetEdit">
     <div class="area-top" onclick="toggleResetEdit()">
       <div class="area-name"><span class="area-emoji">🗓️</span>Sunday Reset</div>
@@ -539,6 +614,26 @@ function renderOverview(){
         <button onclick="addReset()">Add</button>
       </div>
       <button class="focusone" onclick="startReset()">Run the reset, one task at a time →</button>
+    </div>
+  </div>
+  <div class="area deep-area ${S._deepOpen?'open':''} ${dp>=1&&dt>0?'complete':''}" id="deepEdit">
+    <div class="area-top" onclick="toggleDeepEdit()">
+      <div class="area-name"><span class="area-emoji">🧽</span>Monthly Deep Clean</div>
+      <div class="area-count">${dd}/${dt}${dp>=1&&dt>0?' ✓':''}</div>
+    </div>
+    <div class="progress"><div class="fill" style="width:${Math.round(dp*100)}%"></div></div>
+    <div class="area-tasks">
+      ${S.deep.map(tk=>`<div class="trow ${tk.done?'done':''}">
+        <div class="box" onclick="toggleDeepDone('${tk.id}')"></div>
+        <span class="tname" onclick="toggleDeepDone('${tk.id}')">${escapeHtml(tk.name)}</span>
+        <span class="tmin">${tk.min}m</span>
+        <button class="del" onclick="delDeep('${tk.id}')" title="Remove">✕</button>
+      </div>`).join('')}
+      <div class="addtask">
+        <input id="add_deep" placeholder="Add a deep-clean task…" onkeydown="if(event.key==='Enter')addDeep()"/>
+        <button onclick="addDeep()">Add</button>
+      </div>
+      <button class="focusone" onclick="startDeep()">Run the deep clean, one task at a time →</button>
     </div>
   </div>
   <div class="section-label">Rooms · resets daily</div>`;
@@ -588,15 +683,27 @@ function setMode(m){
 }
 function toggleArea(id){ const a=S.areas.find(x=>x.id===id); a._open=!a._open; renderOverview(); }
 function toggleResetEdit(){ S._resetOpen=!S._resetOpen; renderOverview(); }
+function bump(n){ S.todayCount=Math.max(0,(S.todayCount||0)+n); }
 function toggleResetDone(taskId){
   const tk=S.reset.find(x=>x.id===taskId); if(!tk) return;
   const was=tk.done; tk.done=!tk.done;
-  if(!was&&tk.done){ awardPoints(15); registerActiveDay(); if(S.reset.every(t=>t.done)&&S.lastReset!==todayStr()){ S.lastReset=todayStr(); awardPoints(40); fireConfetti(); toast('Sunday Reset done — clean slate! 🗓️','🌟'); } }
-  else if(was&&!tk.done){ S.points=Math.max(0,S.points-15); if(S.lastReset===todayStr()) S.lastReset=null; }
+  if(!was&&tk.done){ awardPoints(15); bump(1); registerActiveDay(); if(S.reset.every(t=>t.done)&&S.lastReset!==todayStr()){ S.lastReset=todayStr(); awardPoints(40); fireConfetti(); toast('Sunday Reset done — clean slate! 🗓️','🌟'); } }
+  else if(was&&!tk.done){ S.points=Math.max(0,S.points-15); bump(-1); if(S.lastReset===todayStr()) S.lastReset=null; }
   save(); render();
 }
 function delReset(taskId){ S.reset=S.reset.filter(t=>t.id!==taskId); save(); renderOverview(); renderReset(); }
 function addReset(){ const inp=document.getElementById('add_reset'); const v=inp.value.trim(); if(!v) return; S.reset.push(t(v,5)); inp.value=''; S._resetOpen=true; save(); renderOverview(); renderReset(); setTimeout(()=>{const ni=document.getElementById('add_reset'); if(ni)ni.focus();},50); }
+
+function toggleDeepEdit(){ S._deepOpen=!S._deepOpen; renderOverview(); }
+function toggleDeepDone(taskId){
+  const tk=S.deep.find(x=>x.id===taskId); if(!tk) return;
+  const was=tk.done; tk.done=!tk.done;
+  if(!was&&tk.done){ awardPoints(15); bump(1); registerActiveDay(); if(S.deep.every(t=>t.done)&&S.lastDeep!==todayStr()){ S.lastDeep=todayStr(); awardPoints(60); fireConfetti(); toast('Deep Clean complete — a big one done! 🧽','🌟'); } }
+  else if(was&&!tk.done){ S.points=Math.max(0,S.points-15); bump(-1); if(S.lastDeep===todayStr()) S.lastDeep=null; }
+  save(); render();
+}
+function delDeep(taskId){ S.deep=S.deep.filter(t=>t.id!==taskId); save(); renderOverview(); renderDeep(); }
+function addDeep(){ const inp=document.getElementById('add_deep'); const v=inp.value.trim(); if(!v) return; S.deep.push(t(v,15)); inp.value=''; S._deepOpen=true; save(); renderOverview(); renderDeep(); setTimeout(()=>{const ni=document.getElementById('add_deep'); if(ni)ni.focus();},50); }
 function focusArea(id){ focusScope=id; currentTask=null; skipped=[]; setMode('focus'); }
 function clearScope(){ focusScope=null; currentTask=null; skipped=[]; render(); }
 
@@ -604,8 +711,8 @@ function toggleTaskDone(areaId,taskId){
   const f=findTask(areaId,taskId); if(!f) return;
   const was=f.task.done;
   f.task.done=!f.task.done;
-  if(!was && f.task.done){ awardPoints(10); registerActiveDay(); }
-  else if(was && !f.task.done){ S.points=Math.max(0,S.points-10); }
+  if(!was && f.task.done){ awardPoints(10); bump(1); registerActiveDay(); }
+  else if(was && !f.task.done){ S.points=Math.max(0,S.points-10); bump(-1); }
   save(); render();
 }
 function delTask(areaId,taskId){ const a=S.areas.find(x=>x.id===areaId); a.tasks=a.tasks.filter(t=>t.id!==taskId); save(); renderOverview(); renderHeader(); }
@@ -629,6 +736,7 @@ function completeTask(){
   const f=getTask(currentTask.areaId,currentTask.taskId); if(!f) return;
   f.task.done=true;
   awardPoints(15);
+  bump(1);
   registerActiveDay();
   fireConfetti();
   // Sunday Reset fully finished?
@@ -636,6 +744,10 @@ function completeTask(){
     S.lastReset=todayStr();
     awardPoints(40);
     setTimeout(()=>toast('Sunday Reset done — clean slate for the week! 🗓️','🌟'),900);
+  } else if(focusScope==='deep' && S.deep.every(tk=>tk.done) && S.lastDeep!==todayStr()){
+    S.lastDeep=todayStr();
+    awardPoints(60);
+    setTimeout(()=>toast('Monthly Deep Clean complete — that is a big one! 🧽','🌟'),900);
   } else {
     toast(pickPraise(), '🎉');
   }
