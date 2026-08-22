@@ -221,6 +221,49 @@
   .dg-more:hover{border-color:var(--sage); color:var(--sage-deep);}
   .dg-more:active{transform:scale(.98);}
 
+  /* ---- Backfill (retroactive logging) ---- */
+  .bf-link{background:none; border:none; padding:6px 0 0; margin:0; color:var(--sage-deep); font-family:'Inter',sans-serif; font-weight:600; font-size:12px; cursor:pointer; text-decoration:underline; text-underline-offset:2px;}
+  .backfill{background:var(--surface); border:1px solid var(--line); border-radius:20px; padding:16px; box-shadow:var(--shadow); margin:-4px 0 16px; animation:fade .25s;}
+  .backfill h4{margin:0 0 6px; font-family:'Bricolage Grotesque',sans-serif; font-size:15px; font-weight:700;}
+  .bf-note{margin:0 0 12px; color:var(--muted); font-size:12px; line-height:1.5;}
+  .bf-row{display:flex; align-items:center; gap:11px; padding:8px 2px; font-size:14px; cursor:pointer; border-bottom:1px solid var(--bg2);}
+  .bf-row:last-of-type{border-bottom:none;}
+  .bf-row .box{width:21px; height:21px; border:2px solid var(--line); border-radius:7px; flex-shrink:0; position:relative; transition:.15s;}
+  .bf-row.on .box{background:var(--gold); border-color:var(--gold);}
+  .bf-row.on .box::after{content:'✓'; color:#fff; font-size:13px; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:700;}
+  .bf-row span{flex:1;}
+  .bf-row em{font-style:normal; font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--gold); font-weight:700;}
+  .bf-close{width:100%; margin-top:12px; border:none; background:var(--ink); color:#fff; font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px; padding:11px; border-radius:12px; cursor:pointer;}
+
+  /* ---- Today's Five ---- */
+  .fivecard{background:var(--surface); border:1px solid var(--line); border-radius:20px; padding:15px 16px; box-shadow:var(--shadow); margin-bottom:16px;}
+  .fivecard.done{background:linear-gradient(135deg,#F6FBF7,#FFFFFF); border-color:var(--sage-soft);}
+  .five-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;}
+  .five-title{font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:16px;}
+  .five-count{font-family:'Space Mono',monospace; font-size:12px; color:var(--muted);}
+  .five-list{margin-bottom:12px;}
+  .five-row{display:flex; align-items:center; gap:10px; padding:7px 0; font-size:14px; border-bottom:1px solid var(--bg2);}
+  .five-row:last-child{border-bottom:none;}
+  .five-row .box{width:20px; height:20px; border:2px solid var(--line); border-radius:6px; flex-shrink:0; cursor:pointer; position:relative; transition:.15s;}
+  .five-row.done .box{background:var(--sage); border-color:var(--sage);}
+  .five-row.done .box::after{content:'✓'; color:#fff; font-size:12px; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-weight:700;}
+  .five-name{flex:1; cursor:pointer;}
+  .five-row.done .five-name{color:var(--muted); text-decoration:line-through;}
+  .five-area{font-size:14px; flex-shrink:0; opacity:.8;}
+  .five-actions{display:flex; gap:9px;}
+  .five-go{flex:1; border:none; background:var(--sage); color:#fff; font-family:'Inter',sans-serif; font-weight:600; font-size:14px; padding:12px; border-radius:13px; cursor:pointer; box-shadow:0 4px 12px rgba(69,121,91,.24);}
+  .fivecard.done .five-go{background:var(--muted); box-shadow:none;}
+  .five-go:active{transform:scale(.98);}
+  .five-shuffle{border:1px solid var(--line); background:var(--surface); color:var(--muted); font-family:'Inter',sans-serif; font-weight:600; font-size:12.5px; padding:0 14px; border-radius:12px; cursor:pointer; white-space:nowrap; transition:.15s;}
+  .five-shuffle:hover{border-color:var(--sage); color:var(--sage-deep);}
+  .five-shuffle:active{transform:scale(.97);}
+
+  /* editable minute chips */
+  .tmin.edit{cursor:pointer; border-bottom:1px dashed var(--line); padding-bottom:1px;}
+  .tmin.edit:hover{color:var(--sage-deep); border-color:var(--sage);}
+  .est-edit{cursor:pointer; border-bottom:1px dashed var(--line);}
+  .est-edit:hover{color:var(--sage-deep); border-color:var(--sage);}
+
   /* confetti canvas */
   #confetti{position:fixed; inset:0; pointer-events:none; z-index:50;}
 
@@ -258,8 +301,12 @@
     <div class="daytext">
       <h3 id="dayHead">Fresh start</h3>
       <p id="daySub">Nothing done yet — and that's totally fine. Pick a tiny win below.</p>
+      <button class="bf-link" onclick="toggleBackfill()">Forgot to log a day?</button>
     </div>
   </div>
+  <div id="backfillPanel"></div>
+
+  <div id="fiveCard"></div>
 
   <div id="resetCard"></div>
   <div id="deepGroup"></div>
@@ -420,6 +467,7 @@ let focusScope=null;          // area id to focus within, or null = all
 let currentTask=null;         // {areaId, taskId}
 let skipped=[];               // taskIds skipped this round
 let breakdownOpen=false;
+let backfillOpen=false;
 let microState={};            // taskId -> [bool...]
 
 /* timer */
@@ -435,18 +483,32 @@ async function init(){
     if(!S.quarter){ S.quarter = defaultQuarter(); S.quarterPeriod = quarterKey(); S.lastQuarter=null; }
     if(!S.half){ S.half = defaultHalf(); S.halfPeriod = halfKey(); S.lastHalf=null; }
     if(S.todayCount==null) S.todayCount=0;
+    // migrate old counter-based streak into a real log of active days
+    if(!Array.isArray(S.activeDays)){
+      S.activeDays=[];
+      if(S.lastActiveDay && S.streak>0){
+        const base=new Date(S.lastActiveDay);
+        for(let i=0;i<S.streak;i++){ const d=new Date(base); d.setDate(d.getDate()-i);
+          S.activeDays.push(d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()); }
+      }
+    }
   } else {
     S = { areas:defaultAreas(), reset:defaultReset(), deep:defaultDeep(), quarter:defaultQuarter(), half:defaultHalf(),
-      streak:0, points:0, lastDay:todayStr(), lastActiveDay:null,
+      streak:0, points:0, lastDay:todayStr(), activeDays:[],
       resetFor:upcomingSunday(), lastReset:null, deepMonth:monthKey(), lastDeep:null,
       quarterPeriod:quarterKey(), lastQuarter:null, halfPeriod:halfKey(), lastHalf:null, todayCount:0 };
   }
+  // keep only the last ~120 days of history
+  if(S.activeDays.length>140) S.activeDays=S.activeDays.slice(-140);
+  refreshStreak();
   // daily reset (room tasks + today's tally)
   if(S.lastDay !== todayStr()){
     S.areas.forEach(a=>a.tasks.forEach(tk=>tk.done=false));
     S.lastDay = todayStr();
     S.todayCount = 0;
+    S.five = null;
   }
+  if(!S.five || S.five.day!==todayStr()) rollFive(true);
   // routine rollovers: Sunday Reset clears the day after Sunday; others clear each period
   LIST_ORDER.forEach(scope=>{
     const cfg=LISTS[scope], now=cfg.periodFn();
@@ -459,6 +521,30 @@ async function save(){ await Store.set(S); }
 
 /* ============ HELPERS ============ */
 function allTasks(){ let r=[]; S.areas.forEach(a=>a.tasks.forEach(tk=>r.push({area:a, task:tk}))); return r; }
+
+/* ---- Today's Five ---- */
+function rollFive(silent){
+  const pool=allTasks();
+  const undone=pool.filter(x=>!x.task.done);
+  const source = undone.length>=5 ? undone : pool;
+  // spread across rooms first: one from each area, shuffled, then fill
+  const byArea={};
+  source.forEach(x=>{ (byArea[x.area.id]=byArea[x.area.id]||[]).push(x); });
+  const areaIds=Object.keys(byArea).sort(()=>Math.random()-0.5);
+  let picks=[];
+  areaIds.forEach(id=>{ const list=byArea[id]; picks.push(list[Math.floor(Math.random()*list.length)]); });
+  picks=picks.sort(()=>Math.random()-0.5).slice(0,5);
+  if(picks.length<5){
+    const rest=source.filter(x=>!picks.some(p=>p.task.id===x.task.id)).sort(()=>Math.random()-0.5);
+    picks=picks.concat(rest.slice(0,5-picks.length));
+  }
+  S.five={ day:todayStr(), ids:picks.map(x=>({areaId:x.area.id, taskId:x.task.id})) };
+  if(!silent){ save(); render(); toast('Fresh five picked for today 🎲','🎲'); }
+}
+function fiveTasks(){
+  if(!S.five||!S.five.ids) return [];
+  return S.five.ids.map(r=>findTask(r.areaId,r.taskId)).filter(Boolean);
+}
 function doneCount(){ return allTasks().filter(x=>x.task.done).length; }
 function totalCount(){ return allTasks().length; }
 function areaProgress(a){ if(!a.tasks.length) return 0; return a.tasks.filter(t=>t.done).length / a.tasks.length; }
@@ -471,7 +557,9 @@ function getTask(areaId,taskId){
 /* pick next task to focus */
 function pickTask(preferQuick){
   let pool;
-  if(LISTS[focusScope]){
+  if(focusScope==='five'){
+    pool = fiveTasks().filter(x=>!x.task.done);
+  } else if(LISTS[focusScope]){
     const cfg=LISTS[focusScope];
     pool = listArr(focusScope).filter(tk=>!tk.done).map(tk=>({area:{id:focusScope,name:cfg.name,emoji:cfg.emoji},task:tk}));
   } else {
@@ -494,8 +582,42 @@ function pickTask(preferQuick){
 /* ============ RENDER ROOT ============ */
 function render(){
   renderHeader();
+  renderFive();
+  renderBackfill();
   renderRoutines();
   if(mode==='focus') renderFocus(); else renderOverview();
+}
+
+function renderFive(){
+  const el=document.getElementById('fiveCard'); if(!el) return;
+  const items=fiveTasks();
+  if(!items.length){ el.innerHTML=''; return; }
+  const done=items.filter(x=>x.task.done).length;
+  const allDone=done===items.length;
+  el.innerHTML=`<div class="fivecard ${allDone?'done':''}">
+    <div class="five-head">
+      <span class="five-title">🎲 Today's Five</span>
+      <span class="five-count">${done}/${items.length}${allDone?' ✓':''}</span>
+    </div>
+    <div class="five-list">
+      ${items.map(x=>`<div class="five-row ${x.task.done?'done':''}">
+        <div class="box" onclick="toggleTaskDone('${x.area.id}','${x.task.id}')"></div>
+        <span class="five-name" onclick="startFiveAt('${x.area.id}','${x.task.id}')">${escapeHtml(x.task.name)}</span>
+        <span class="five-area">${x.area.emoji}</span>
+        <span class="tmin">${x.task.min}m</span>
+      </div>`).join('')}
+    </div>
+    <div class="five-actions">
+      <button class="five-go" onclick="startFive()">${allDone?'All five done ✓':'Focus these →'}</button>
+      <button class="five-shuffle" onclick="rollFive(false)">🎲 Shuffle</button>
+    </div>
+  </div>`;
+}
+function startFive(){ focusScope='five'; currentTask=null; skipped=[]; setMode('focus'); }
+function startFiveAt(areaId,taskId){
+  const f=findTask(areaId,taskId); if(!f||f.task.done) return;
+  focusScope='five'; skipped=[]; currentTask={areaId,taskId};
+  setTimer(f.task.min); setMode('focus');
 }
 
 function renderRoutines(){
@@ -627,7 +749,8 @@ function renderFocus(){
   if(!currentTask){
     const cfg=LISTS[focusScope];
     let em='🌿', head='You did it', body='Everything on your list is handled. That is a genuinely good day.';
-    if(cfg){
+    if(focusScope==='five'){ em='🎲'; head='All five done'; body='You cleared today\'s five. That is a properly good day — anything else is a bonus.'; }
+    else if(cfg){
       em=cfg.emoji;
       if(focusScope==='reset'){ head='Reset complete'; body='The week is set up to feel calm — enjoy the fresh start.'; }
       else { head=cfg.name+' done'; body='The big jobs are handled — your place is genuinely fresh, no small thing.'; }
@@ -647,7 +770,7 @@ function renderFocus(){
     <div class="focuscard">
       <div class="areachip">${area.emoji} ${area.name}</div>
       <h2 class="task-title">${escapeHtml(task.name)}</h2>
-      <div class="task-est">Roughly <b>${task.min} min</b> — but stopping early still counts.</div>
+      <div class="task-est">Roughly <b class="est-edit" onclick="editMin('${area.id}','${task.id}')" title="Edit time">${task.min} min</b> — but stopping early still counts.</div>
 
       <div class="timerwrap">
         <svg width="172" height="172" viewBox="0 0 172 172">
@@ -680,7 +803,7 @@ function renderFocus(){
 
       ${LISTS[focusScope]?`<button class="btn-minor" onclick="finishList('${focusScope}')" style="margin-top:10px">✓ Mark whole ${LISTS[focusScope].name} finished</button>`:''}
 
-      <p class="scope-note">${LISTS[focusScope]?`<b>${LISTS[focusScope].emoji} ${LISTS[focusScope].name}</b> in progress. <button onclick="clearScope()">Switch to rooms</button>`:(focusScope?`Focusing on <b>${area.name}</b>. <button onclick="clearScope()">Clear all areas</button>`:`Pulling from every area. <button onclick="setMode('overview')">Choose one area</button>`)}</p>
+      <p class="scope-note">${focusScope==='five'?`<b>🎲 Today's Five</b> in progress. <button onclick="clearScope()">Switch to all tasks</button>`:(LISTS[focusScope]?`<b>${LISTS[focusScope].emoji} ${LISTS[focusScope].name}</b> in progress. <button onclick="clearScope()">Switch to rooms</button>`:(focusScope?`Focusing on <b>${area.name}</b>. <button onclick="clearScope()">Clear all areas</button>`:`Pulling from every area. <button onclick="setMode('overview')">Choose one area</button>`))}</p>
     </div>`;
   updateTimerUI();
 }
@@ -725,7 +848,7 @@ function renderOverview(){
         ${arr.map(tk=>`<div class="trow ${tk.done?'done':''}">
           <div class="box" onclick="toggleListDone('${scope}','${tk.id}')"></div>
           <span class="tname" onclick="toggleListDone('${scope}','${tk.id}')">${escapeHtml(tk.name)}</span>
-          <span class="tmin">${tk.min}m</span>
+          <span class="tmin edit" onclick="editMin('${scope}','${tk.id}')" title="Edit time">${tk.min}m</span>
           <button class="del" onclick="delList('${scope}','${tk.id}')" title="Remove">✕</button>
         </div>`).join('')}
         <div class="addtask">
@@ -753,7 +876,7 @@ function renderOverview(){
         ${a.tasks.map(tk=>`<div class="trow ${tk.done?'done':''}">
           <div class="box" onclick="toggleTaskDone('${a.id}','${tk.id}')"></div>
           <span class="tname" onclick="toggleTaskDone('${a.id}','${tk.id}')">${escapeHtml(tk.name)}</span>
-          <span class="tmin">${tk.min}m</span>
+          <span class="tmin edit" onclick="editMin('${a.id}','${tk.id}')" title="Edit time">${tk.min}m</span>
           <button class="del" onclick="delTask('${a.id}','${tk.id}')" title="Remove">✕</button>
         </div>`).join('')}
         <div class="addtask">
@@ -785,6 +908,17 @@ function setMode(m){
 }
 function toggleArea(id){ const a=S.areas.find(x=>x.id===id); a._open=!a._open; renderOverview(); }
 function bump(n){ S.todayCount=Math.max(0,(S.todayCount||0)+n); }
+
+function editMin(scopeOrArea,taskId){
+  const f=getTask(scopeOrArea,taskId); if(!f) return;
+  const v=prompt(`How many minutes for "${f.task.name}"?`, f.task.min);
+  if(v===null) return;
+  const n=Math.round(parseFloat(v));
+  if(!isFinite(n)||n<1){ toast('Enter a number of minutes, 1 or more.','⏱️'); return; }
+  f.task.min=Math.min(n,240);
+  if(currentTask && currentTask.taskId===taskId) setTimer(f.task.min);
+  save(); render();
+}
 
 function toggleListEdit(scope){ const k='_open_'+scope; S[k]=!S[k]; renderOverview(); }
 function toggleListDone(scope,taskId){
@@ -873,16 +1007,58 @@ function toggleMicro(taskId,i,len){
 
 /* points + streak */
 function awardPoints(n){ S.points+=n; }
+function dayKeyOffset(n){ const d=new Date(); d.setDate(d.getDate()-n); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function isActive(key){ return (S.activeDays||[]).indexOf(key)>=0; }
+function computeStreak(){
+  const days=S.activeDays||[];
+  if(!days.length) return 0;
+  // count back from today, or from yesterday if today isn't logged yet
+  let start = isActive(dayKeyOffset(0)) ? 0 : (isActive(dayKeyOffset(1)) ? 1 : -1);
+  if(start<0) return 0;
+  let n=0, i=start;
+  while(isActive(dayKeyOffset(i))){ n++; i++; }
+  return n;
+}
+function refreshStreak(){ S.streak=computeStreak(); }
 function registerActiveDay(){
   const today=todayStr();
-  if(S.lastActiveDay===today) return;
-  // streak: if last active was yesterday, +1; else reset to 1
-  const y=new Date(); y.setDate(y.getDate()-1);
-  const yStr=y.getFullYear()+'-'+(y.getMonth()+1)+'-'+y.getDate();
-  if(S.lastActiveDay===yStr) S.streak+=1;
-  else S.streak=1;
-  S.lastActiveDay=today;
-  if(S.streak>1) setTimeout(()=>toast(S.streak+'-day streak! 🌱 Growing.','🔥'),900);
+  if(!S.activeDays) S.activeDays=[];
+  if(isActive(today)) return;
+  S.activeDays.push(today);
+  const before=S.streak||0;
+  refreshStreak();
+  if(S.streak>1 && S.streak>before) setTimeout(()=>toast(S.streak+'-day streak! 🌱 Growing.','🔥'),900);
+}
+function toggleActiveDay(key){
+  if(!S.activeDays) S.activeDays=[];
+  const i=S.activeDays.indexOf(key);
+  if(i>=0) S.activeDays.splice(i,1); else S.activeDays.push(key);
+  const before=S.streak||0;
+  refreshStreak();
+  save();
+  renderHeader(); renderBackfill();
+  if(S.streak>before) toast(S.streak+'-day streak restored 🌱','✨');
+}
+function toggleBackfill(){ backfillOpen=!backfillOpen; renderBackfill(); }
+function renderBackfill(){
+  const el=document.getElementById('backfillPanel'); if(!el) return;
+  if(!backfillOpen){ el.innerHTML=''; return; }
+  const names=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let rows='';
+  for(let i=0;i<14;i++){
+    const key=dayKeyOffset(i);
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const label = i===0?'Today':(i===1?'Yesterday':names[d.getDay()]+' '+(d.getMonth()+1)+'/'+d.getDate());
+    const on=isActive(key);
+    rows += `<div class="bf-row ${on?'on':''}" onclick="toggleActiveDay('${key}')">
+      <div class="box"></div><span>${label}</span>${on?'<em>logged</em>':''}</div>`;
+  }
+  el.innerHTML=`<div class="backfill">
+    <h4>Did you clean on a day you forgot to log?</h4>
+    <p class="bf-note">Tap any day you actually did something. This is just your own honest record — it keeps your streak accurate.</p>
+    ${rows}
+    <button class="bf-close" onclick="toggleBackfill()">Done</button>
+  </div>`;
 }
 
 /* ============ TIMER ============ */
