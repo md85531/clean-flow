@@ -264,6 +264,36 @@
   .est-edit{cursor:pointer; border-bottom:1px dashed var(--line);}
   .est-edit:hover{color:var(--sage-deep); border-color:var(--sage);}
 
+  /* daily / weekly chip on room tasks */
+  .freq{flex-shrink:0; border:1px solid var(--line); background:transparent; color:var(--muted); font-family:'Inter',sans-serif; font-size:10.5px; font-weight:600; padding:3px 7px; border-radius:999px; cursor:pointer; white-space:nowrap;}
+  .freq.daily{background:#FBF1DC; border-color:#F0DDB2; color:#8A6420;}
+  .freq:active{transform:scale(.95);}
+
+  /* Monday recap */
+  .recap{background:linear-gradient(135deg,#FFF9EC,#FFFFFF); border:1px solid #F0DDB2; border-radius:22px; padding:16px; box-shadow:0 6px 20px rgba(224,169,63,.14); margin-bottom:16px; animation:fade .35s;}
+  .recap-top{display:flex; align-items:center; gap:12px; margin-bottom:12px;}
+  .recap-ic{font-size:26px;}
+  .recap-title{font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:17px; letter-spacing:-.01em;}
+  .recap-sub{color:var(--muted); font-size:12px;}
+  .recap-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px;}
+  .recap-stats div{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:10px 6px; text-align:center;}
+  .recap-stats b{display:block; font-family:'Bricolage Grotesque',sans-serif; font-size:22px; line-height:1.1; color:var(--ink);}
+  .recap-stats span{font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
+  .recap-rooms{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
+  .recap-rooms span{font-size:12px; background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:4px 9px; font-family:'Space Mono',monospace;}
+  .recap-note{font-size:12.5px; color:var(--muted); margin-bottom:12px;}
+  .recap-go{width:100%; border:none; background:var(--gold); color:#fff; font-family:'Inter',sans-serif; font-weight:600; font-size:14px; padding:12px; border-radius:13px; cursor:pointer;}
+  .recap-go:active{transform:scale(.98);}
+
+  /* backup & restore */
+  .backupbox{background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:15px 16px; box-shadow:var(--shadow);}
+  .backupbox p{margin:0 0 8px; font-size:13px; color:var(--muted); line-height:1.5;}
+  .backup-last{font-size:12px; font-weight:600; color:var(--ink); margin-bottom:12px;}
+  .backup-btns{display:flex; gap:9px;}
+  .backup-save,.backup-load{flex:1; border-radius:12px; padding:11px; font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px; cursor:pointer;}
+  .backup-save{border:none; background:var(--ink); color:#fff;}
+  .backup-load{border:1px solid var(--line); background:var(--surface); color:var(--ink);}
+
   /* confetti canvas */
   #confetti{position:fixed; inset:0; pointer-events:none; z-index:50;}
 
@@ -296,6 +326,8 @@
     </div>
   </div>
 
+  <div id="recapCard"></div>
+
   <div class="daycard">
     <div class="countbadge"><b id="dayCount">0</b><span>done today</span></div>
     <div class="daytext">
@@ -323,7 +355,7 @@
   <!-- OVERVIEW -->
   <div id="overviewView" class="hidden"></div>
 
-  <div class="footer-tip">CleanFlow keeps your progress saved automatically.<br>No streak pressure — even one task counts as a win. 🌱</div>
+  <div class="footer-tip">CleanFlow saves your progress on this phone automatically.<br>No streak pressure — even one task counts as a win. 🌱</div>
 </div>
 
 <canvas id="confetti"></canvas>
@@ -352,7 +384,7 @@ const Store = {
 function defaultAreas(){
   return [
     {id:'kit', name:'Kitchen', emoji:'🍳', tasks:[
-      t('Clear & wipe counters',10), t('Load or run dishwasher',8), t('Wipe the stovetop',5), t('Trash & recycling out',4), t('Sweep the floor',7)
+      t('Clear & wipe counters',10), td('Load or run dishwasher',8), t('Wipe the stovetop',5), t('Trash & recycling out',4), t('Sweep the floor',7)
     ]},
     {id:'dine', name:'Dining Room / Entryway', emoji:'🍽️', tasks:[
       t('Clear the table',5), t('Sort the mail / drop-zone',5), t('Shoes lined up, coats hung',4), t('Wipe the table',3), t('Quick floor pickup',5)
@@ -367,7 +399,7 @@ function defaultAreas(){
       t('Clear off the desk',8), t('Toss or file papers',10), t('Tidy cables & cups',4), t('Empty the bin',2)
     ]},
     {id:'bed', name:'Main Bedroom', emoji:'🛏️', tasks:[
-      t('Make the bed',3), t('Clear the nightstand',4), t('Put away stray clothes',10), t('Quick floor pickup',5)
+      td('Make the bed',3), t('Clear the nightstand',4), t('Put away stray clothes',10), t('Quick floor pickup',5)
     ]},
     {id:'mbath', name:'Main Bathroom', emoji:'🚿', tasks:[
       t('Wipe sink & mirror',5), t('Scrub the toilet',6), t('Rinse down the shower',8), t('Swap in fresh towels',2), t('Empty the bin',2)
@@ -441,13 +473,17 @@ function defaultHalf(){
 }
 let _tid=0;
 function t(name,min){ return {id:'t'+(Date.now()%100000)+(_tid++), name, min, done:false}; }
+function td(name,min){ const x=t(name,min); x.daily=true; return x; }
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
 function sundayKey(){ const d=new Date(); d.setDate(d.getDate()-d.getDay()); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
 function upcomingSunday(){ const d=new Date(); const diff=(7-d.getDay())%7; d.setDate(d.getDate()+diff); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function mondayKey(){ const d=new Date(); d.setDate(d.getDate()-((d.getDay()+6)%7)); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
 function monthKey(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1); }
 function quarterKey(){ const d=new Date(); return d.getFullYear()+'-Q'+(Math.floor(d.getMonth()/3)+1); }
 function halfKey(){ const d=new Date(); return d.getFullYear()+'-H'+(d.getMonth()<6?1:2); }
-function daysSince(str){ if(!str) return null; const a=new Date(str), b=new Date(todayStr()); return Math.round((b-a)/86400000); }
+function parseKey(k){ const p=String(k).split('-').map(Number); return new Date(p[0],p[1]-1,p[2]); }
+function keyOf(d){ return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function daysSince(str){ if(!str) return null; const a=parseKey(str), b=parseKey(todayStr()); const n=Math.round((b-a)/86400000); return isFinite(n)?n:null; }
 
 /* ============ ROUTINE REGISTRY ============ */
 const LISTS = {
@@ -487,7 +523,7 @@ async function init(){
     if(!Array.isArray(S.activeDays)){
       S.activeDays=[];
       if(S.lastActiveDay && S.streak>0){
-        const base=new Date(S.lastActiveDay);
+        const base=parseKey(S.lastActiveDay);
         for(let i=0;i<S.streak;i++){ const d=new Date(base); d.setDate(d.getDate()-i);
           S.activeDays.push(d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()); }
       }
@@ -501,9 +537,20 @@ async function init(){
   // keep only the last ~120 days of history
   if(S.activeDays.length>140) S.activeDays=S.activeDays.slice(-140);
   refreshStreak();
-  // daily reset (room tasks + today's tally)
-  if(S.lastDay !== todayStr()){
+  // per-day completion history (feeds the Monday recap)
+  if(!S.history){ S.history={}; if(S.lastDay && S.todayCount) S.history[S.lastDay]=S.todayCount; }
+  pruneHistory();
+  // room tasks are sticky all week and start fresh Monday morning
+  if(S.roomWeek===undefined) S.roomWeek = mondayKey();   // existing users: keep this week's progress
+  if(S.roomWeek !== mondayKey()){
+    buildRecap(S.roomWeek);
     S.areas.forEach(a=>a.tasks.forEach(tk=>tk.done=false));
+    S.roomWeek = mondayKey();
+    S.five = null;
+  }
+  // daily: the "done today" tally, Today's Five, and any tasks tagged daily
+  if(S.lastDay !== todayStr()){
+    S.areas.forEach(a=>a.tasks.forEach(tk=>{ if(tk.daily) tk.done=false; }));
     S.lastDay = todayStr();
     S.todayCount = 0;
     S.five = null;
@@ -524,22 +571,40 @@ function allTasks(){ let r=[]; S.areas.forEach(a=>a.tasks.forEach(tk=>r.push({ar
 
 /* ---- Today's Five ---- */
 function rollFive(silent){
-  const pool=allTasks();
-  const undone=pool.filter(x=>!x.task.done);
-  const source = undone.length>=5 ? undone : pool;
-  // spread across rooms first: one from each area, shuffled, then fill
+  // only pull from what's still left this week
+  const source=allTasks().filter(x=>!x.task.done);
+  // on a shuffle, steer away from the set you just saw
+  const prev=new Set(!silent && S.five && S.five.ids ? S.five.ids.map(r=>r.taskId) : []);
+  // Smarter Five: rooms (and tasks) you haven't touched lately float to the top,
+  // with a little randomness so it never feels like the same list.
+  const NEVER=21;
+  const taskAge=tk=>{ const d=daysSince(tk.lastDone); return d==null?NEVER:Math.min(d,NEVER); };
+  const taskScore=tk=>taskAge(tk)+Math.random()*3-(prev.has(tk.id)?50:0);
   const byArea={};
   source.forEach(x=>{ (byArea[x.area.id]=byArea[x.area.id]||[]).push(x); });
-  const areaIds=Object.keys(byArea).sort(()=>Math.random()-0.5);
+  const areaScore=id=>{
+    const a=S.areas.find(z=>z.id===id);
+    const age=Math.min(...a.tasks.map(taskAge));          // days since this room was last touched
+    return age+Math.random()*4;
+  };
+  const areaIds=Object.keys(byArea).map(id=>({id,s:areaScore(id)})).sort((p,q)=>q.s-p.s).map(o=>o.id);
   let picks=[];
-  areaIds.forEach(id=>{ const list=byArea[id]; picks.push(list[Math.floor(Math.random()*list.length)]); });
-  picks=picks.sort(()=>Math.random()-0.5).slice(0,5);
+  areaIds.forEach(id=>{
+    if(picks.length>=5) return;
+    const best=byArea[id].map(x=>({x,s:taskScore(x.task)})).sort((p,q)=>q.s-p.s)[0];
+    picks.push(best.x);
+  });
   if(picks.length<5){
-    const rest=source.filter(x=>!picks.some(p=>p.task.id===x.task.id)).sort(()=>Math.random()-0.5);
+    const rest=source.filter(x=>!picks.some(p=>p.task.id===x.task.id))
+      .map(x=>({x,s:taskScore(x.task)})).sort((p,q)=>q.s-p.s).map(o=>o.x);
     picks=picks.concat(rest.slice(0,5-picks.length));
   }
   S.five={ day:todayStr(), ids:picks.map(x=>({areaId:x.area.id, taskId:x.task.id})) };
-  if(!silent){ save(); render(); toast('Fresh five picked for today 🎲','🎲'); }
+  if(!silent){
+    if(!focusScope || focusScope==='five'){ currentTask=null; skipped=[]; breakdownOpen=false; }
+    save(); render();
+    toast(picks.length?'Fresh five picked 🎲':'Every room task is done this week! ✨','🎲');
+  }
 }
 function fiveTasks(){
   if(!S.five||!S.five.ids) return [];
@@ -557,14 +622,20 @@ function getTask(areaId,taskId){
 /* pick next task to focus */
 function pickTask(preferQuick){
   let pool;
-  if(focusScope==='five'){
-    pool = fiveTasks().filter(x=>!x.task.done);
+  if(!focusScope || focusScope==='five'){
+    // Focus defaults to Today's Five, in the order they're listed
+    const left = fiveTasks().filter(x=>!x.task.done);
+    const fresh5 = left.filter(x=>!skipped.includes(x.task.id));
+    if(!left.length) return null;
+    if(!fresh5.length){ skipped=[]; return left[0]; }
+    if(preferQuick){ const q=fresh5.filter(x=>x.task.min<=5); if(q.length) return q[0]; }
+    return fresh5[0];
   } else if(LISTS[focusScope]){
     const cfg=LISTS[focusScope];
     pool = listArr(focusScope).filter(tk=>!tk.done).map(tk=>({area:{id:focusScope,name:cfg.name,emoji:cfg.emoji},task:tk}));
   } else {
     pool = allTasks().filter(x=>!x.task.done);
-    if(focusScope) pool = pool.filter(x=>x.area.id===focusScope);
+    if(focusScope!=='any') pool = pool.filter(x=>x.area.id===focusScope);
   }
   if(!pool.length) return null;
   let fresh = pool.filter(x=>!skipped.includes(x.task.id));
@@ -582,16 +653,60 @@ function pickTask(preferQuick){
 /* ============ RENDER ROOT ============ */
 function render(){
   renderHeader();
+  renderRecap();
   renderFive();
   renderBackfill();
   renderRoutines();
   if(mode==='focus') renderFocus(); else renderOverview();
 }
 
+/* ---- Monday recap ---- */
+function pruneHistory(){
+  if(!S.history) return;
+  Object.keys(S.history).forEach(k=>{ const d=daysSince(k); if(d==null||d>70) delete S.history[k]; });
+}
+function buildRecap(weekKey){
+  const start=parseKey(weekKey); if(isNaN(start)) return;
+  const names=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  let total=0, best=null, bestN=0, active=0;
+  for(let i=0;i<7;i++){
+    const d=new Date(start); d.setDate(d.getDate()+i);
+    const k=keyOf(d), n=(S.history&&S.history[k])||0;
+    total+=n;
+    if(n>bestN){ bestN=n; best=names[d.getDay()]; }
+    if(n>0 || isActive(k)) active++;
+  }
+  const inWeek=k=>{ if(!k) return false; const d=parseKey(k); return d>=start && (d-start)<7*86400000; };
+  const routines=LIST_ORDER.filter(s=>inWeek(S[LISTS[s].lastField])).map(s=>LISTS[s].emoji+' '+LISTS[s].name);
+  const rooms=S.areas.map(a=>({emoji:a.emoji, name:a.name, done:a.tasks.filter(t=>t.done).length, total:a.tasks.length}));
+  if(!total && !active) return;   // nothing to celebrate, skip quietly
+  S.recap={ week:weekKey, total, best, bestN, active, routines, rooms, seen:false };
+}
+function renderRecap(){
+  const el=document.getElementById('recapCard'); if(!el) return;
+  const r=S.recap;
+  if(!r || r.seen){ el.innerHTML=''; return; }
+  const ws=parseKey(r.week), label=(ws.getMonth()+1)+'/'+ws.getDate();
+  const touched=r.rooms.filter(x=>x.done>0);
+  el.innerHTML=`<div class="recap">
+    <div class="recap-top"><span class="recap-ic">🌟</span>
+      <div><div class="recap-title">Last week, you showed up</div><div class="recap-sub">Week of ${label}</div></div></div>
+    <div class="recap-stats">
+      <div><b>${r.total}</b><span>tasks done</span></div>
+      <div><b>${r.active}</b><span>active days</span></div>
+      <div><b>${r.best?r.best.slice(0,3):'—'}</b><span>best day${r.bestN?' ('+r.bestN+')':''}</span></div>
+    </div>
+    ${touched.length?`<div class="recap-rooms">${touched.map(x=>`<span>${x.emoji} ${x.done}/${x.total}</span>`).join('')}</div>`:''}
+    ${r.routines.length?`<div class="recap-note">Also finished: ${r.routines.join(', ')}</div>`:''}
+    <button class="recap-go" onclick="dismissRecap()">Nice — on to the new week →</button>
+  </div>`;
+}
+function dismissRecap(){ if(S.recap) S.recap.seen=true; save(); renderRecap(); }
+
 function renderFive(){
   const el=document.getElementById('fiveCard'); if(!el) return;
   const items=fiveTasks();
-  if(!items.length){ el.innerHTML=''; return; }
+  if(!items.length){ el.innerHTML=allTasks().length?`<div class="fivecard done"><div class="five-head"><span class="five-title">🎲 Today's Five</span><span class="five-count">✓</span></div><p class="bf-note" style="margin:0">Every room task is done for the week. Fresh list Monday morning — enjoy it.</p></div>`:''; return; }
   const done=items.filter(x=>x.task.done).length;
   const allDone=done===items.length;
   el.innerHTML=`<div class="fivecard ${allDone?'done':''}">
@@ -613,7 +728,7 @@ function renderFive(){
     </div>
   </div>`;
 }
-function startFive(){ focusScope='five'; currentTask=null; skipped=[]; setMode('focus'); }
+function startFive(){ focusScope=null; currentTask=null; skipped=[]; setMode('focus'); }
 function startFiveAt(areaId,taskId){
   const f=findTask(areaId,taskId); if(!f||f.task.done) return;
   focusScope='five'; skipped=[]; currentTask={areaId,taskId};
@@ -748,18 +863,32 @@ function renderFocus(){
 
   if(!currentTask){
     const cfg=LISTS[focusScope];
-    let em='🌿', head='You did it', body='Everything on your list is handled. That is a genuinely good day.';
-    if(focusScope==='five'){ em='🎲'; head='All five done'; body='You cleared today\'s five. That is a properly good day — anything else is a bonus.'; }
-    else if(cfg){
+    let em='🌿', head='You did it', body='Every room task is handled for the week. That is a genuinely good week.';
+    let btns='';
+    const roomsLeft=allTasks().filter(x=>!x.task.done).length;
+    if(!focusScope || focusScope==='five'){
+      if(roomsLeft){
+        em='🎲'; head='Today\'s Five: done';
+        body='That is a properly good day. Stop here guilt-free — or keep the momentum going.';
+        btns=`<button class="btn-done" onclick="rollFive(false)">🎲 Give me 5 more</button>
+              <button class="btn-minor" onclick="focusAny()">Keep going, one at a time</button>`;
+      }
+    } else if(cfg){
       em=cfg.emoji;
       if(focusScope==='reset'){ head='Reset complete'; body='The week is set up to feel calm — enjoy the fresh start.'; }
       else { head=cfg.name+' done'; body='The big jobs are handled — your place is genuinely fresh, no small thing.'; }
-    } else if(focusScope){ head='This area is done'; body='Nice work clearing this space. Want to tackle another area?'; }
+      btns=`<button class="btn-minor" onclick="clearScope()">Back to Today's Five</button>`;
+    } else if(focusScope!=='any'){
+      head='This area is done'; body='Nice work clearing this space for the week.';
+      btns=`<button class="btn-minor" onclick="clearScope()">Back to Today's Five</button>`;
+    } else if(roomsLeft===0){
+      btns=`<button class="btn-minor" onclick="clearScope()">Back to Today's Five</button>`;
+    }
     fv.innerHTML = `<div class="alldone">
       <div class="em">${em}</div>
       <h2>${head}</h2>
       <p>${body}</p>
-      ${(focusScope)?'<div class="actions" style="margin-top:18px"><button class="btn-minor" onclick="clearScope()">Back to all tasks</button></div>':''}
+      ${btns?`<div class="actions" style="margin-top:18px">${btns}</div>`:''}
     </div>`;
     return;
   }
@@ -803,7 +932,7 @@ function renderFocus(){
 
       ${LISTS[focusScope]?`<button class="btn-minor" onclick="finishList('${focusScope}')" style="margin-top:10px">✓ Mark whole ${LISTS[focusScope].name} finished</button>`:''}
 
-      <p class="scope-note">${focusScope==='five'?`<b>🎲 Today's Five</b> in progress. <button onclick="clearScope()">Switch to all tasks</button>`:(LISTS[focusScope]?`<b>${LISTS[focusScope].emoji} ${LISTS[focusScope].name}</b> in progress. <button onclick="clearScope()">Switch to rooms</button>`:(focusScope?`Focusing on <b>${area.name}</b>. <button onclick="clearScope()">Clear all areas</button>`:`Pulling from every area. <button onclick="setMode('overview')">Choose one area</button>`))}</p>
+      <p class="scope-note">${(!focusScope||focusScope==='five')?`<b>🎲 Today's Five</b> · ${fiveTasks().filter(x=>x.task.done).length} of ${fiveTasks().length} done. <button onclick="focusAny()">Pick from all rooms</button>`:(LISTS[focusScope]?`<b>${LISTS[focusScope].emoji} ${LISTS[focusScope].name}</b> in progress. <button onclick="clearScope()">Back to Today's Five</button>`:(focusScope==='any'?`Pulling from every room. <button onclick="clearScope()">Back to Today's Five</button>`:`Focusing on <b>${area.name}</b>. <button onclick="clearScope()">Back to Today's Five</button>`))}</p>
     </div>`;
   updateTimerUI();
 }
@@ -860,7 +989,7 @@ function renderOverview(){
       </div>
     </div>`;
   });
-  html += `<div class="section-label">Rooms · reset daily</div>`;
+  html += `<div class="section-label">Rooms · start fresh Monday mornings</div>`;
 
   S.areas.forEach(a=>{
     const p=areaProgress(a);
@@ -876,6 +1005,7 @@ function renderOverview(){
         ${a.tasks.map(tk=>`<div class="trow ${tk.done?'done':''}">
           <div class="box" onclick="toggleTaskDone('${a.id}','${tk.id}')"></div>
           <span class="tname" onclick="toggleTaskDone('${a.id}','${tk.id}')">${escapeHtml(tk.name)}</span>
+          <button class="freq ${tk.daily?'daily':''}" onclick="toggleDaily('${a.id}','${tk.id}')" title="Tap to switch between daily and weekly">${tk.daily?'☀️ daily':'weekly'}</button>
           <span class="tmin edit" onclick="editMin('${a.id}','${tk.id}')" title="Edit time">${tk.min}m</span>
           <button class="del" onclick="delTask('${a.id}','${tk.id}')" title="Remove">✕</button>
         </div>`).join('')}
@@ -893,6 +1023,17 @@ function renderOverview(){
     </div>`;
   });
   html += `<button class="addarea" onclick="addArea()">+ Add an area</button>`;
+  const lb=daysSince(S.lastBackup);
+  html += `<div class="section-label" style="margin-top:26px">Backup & restore</div>
+  <div class="backupbox">
+    <p>Your CleanFlow data lives only on this phone. Save a backup now and then so your streak and lists are safe if Safari data gets cleared or you switch phones.</p>
+    <div class="backup-last">${lb==null?'No backup saved yet':'Last backup: '+(lb===0?'today':lb+(lb===1?' day':' days')+' ago')}</div>
+    <div class="backup-btns">
+      <button class="backup-save" onclick="exportBackup()">⬇︎ Save backup</button>
+      <button class="backup-load" onclick="document.getElementById('restoreFile').click()">⬆︎ Restore</button>
+    </div>
+    <input type="file" id="restoreFile" accept=".json,application/json" style="display:none" onchange="importBackup(this)"/>
+  </div>`;
   ov.innerHTML=html;
 }
 
@@ -907,7 +1048,11 @@ function setMode(m){
   render();
 }
 function toggleArea(id){ const a=S.areas.find(x=>x.id===id); a._open=!a._open; renderOverview(); }
-function bump(n){ S.todayCount=Math.max(0,(S.todayCount||0)+n); }
+function bump(n){
+  S.todayCount=Math.max(0,(S.todayCount||0)+n);
+  if(!S.history) S.history={};
+  const k=todayStr(); S.history[k]=Math.max(0,(S.history[k]||0)+n);
+}
 
 function editMin(scopeOrArea,taskId){
   const f=getTask(scopeOrArea,taskId); if(!f) return;
@@ -935,20 +1080,77 @@ function addList(scope){ const inp=document.getElementById('add_'+scope); const 
 
 function finishArea(id){
   const a=S.areas.find(x=>x.id===id); if(!a) return;
-  a.tasks.forEach(tk=>{ if(!tk.done){ tk.done=true; awardPoints(10); bump(1); } });
+  a.tasks.forEach(tk=>{ if(!tk.done){ tk.done=true; stampDone(tk); awardPoints(10); bump(1); } });
   registerActiveDay(); fireConfetti(); toast(a.name+' — all set! ✨','🌟');
   save(); render();
 }
 
+/* remember when each task was last done (drives Smarter Five) */
+function stampDone(tk){ if(tk.lastDone!==todayStr()){ tk.prevDone=tk.lastDone||null; tk.lastDone=todayStr(); } }
+function unstampDone(tk){ if(tk.lastDone===todayStr()){ tk.lastDone=tk.prevDone||null; } }
+function toggleDaily(areaId,taskId){
+  const f=findTask(areaId,taskId); if(!f) return;
+  f.task.daily=!f.task.daily;
+  toast(f.task.daily?'Resets every morning now ☀️':'Back to weekly — resets Mondays','🔁');
+  save(); renderOverview();
+}
+
+/* ---- Backup & restore ---- */
+function backupPayload(){
+  const copy=JSON.parse(JSON.stringify(S));
+  return JSON.stringify({app:'CleanFlow', version:1, savedAt:new Date().toISOString(), state:copy}, null, 1);
+}
+async function exportBackup(){
+  S.lastBackup=todayStr(); save();
+  const name='cleanflow-backup-'+todayStr()+'.json';
+  const text=backupPayload();
+  try{
+    const file=new File([text], name, {type:'application/json'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:'CleanFlow backup'});
+      toast('Backup ready — save it to Files or iCloud Drive 📁','💾'); renderOverview(); return;
+    }
+  }catch(e){ if(e && e.name==='AbortError'){ return; } }
+  try{
+    const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));
+    const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+    toast('Backup downloaded 💾','💾');
+  }catch(e){
+    try{ await navigator.clipboard.writeText(text); toast('Backup copied to clipboard — paste it into a note','📋'); }
+    catch(e2){ toast('Could not save a backup on this device','⚠️'); }
+  }
+  renderOverview();
+}
+function importBackup(input){
+  const file=input.files && input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=async ()=>{
+    input.value='';
+    let data;
+    try{ data=JSON.parse(reader.result); }catch(e){ toast('That file isn\'t a CleanFlow backup','⚠️'); return; }
+    const st=data && data.state;
+    if(!data || data.app!=='CleanFlow' || !st || !Array.isArray(st.areas)){ toast('That file isn\'t a CleanFlow backup','⚠️'); return; }
+    const when=data.savedAt?new Date(data.savedAt).toLocaleDateString():'an unknown date';
+    if(!confirm('Restore the backup from '+when+'? This replaces everything currently in CleanFlow on this phone.')) return;
+    await Store.set(st);
+    focusScope=null; currentTask=null; skipped=[];
+    await init();
+    toast('Backup restored ✨','✅');
+  };
+  reader.readAsText(file);
+}
+
 function focusArea(id){ focusScope=id; currentTask=null; skipped=[]; setMode('focus'); }
-function clearScope(){ focusScope=null; currentTask=null; skipped=[]; render(); }
+function clearScope(){ focusScope=null; currentTask=null; skipped=[]; breakdownOpen=false; render(); }
+function focusAny(){ focusScope='any'; currentTask=null; skipped=[]; breakdownOpen=false; setMode('focus'); }
 
 function toggleTaskDone(areaId,taskId){
   const f=findTask(areaId,taskId); if(!f) return;
   const was=f.task.done;
   f.task.done=!f.task.done;
-  if(!was && f.task.done){ awardPoints(10); bump(1); registerActiveDay(); }
-  else if(was && !f.task.done){ S.points=Math.max(0,S.points-10); bump(-1); }
+  if(!was && f.task.done){ stampDone(f.task); awardPoints(10); bump(1); registerActiveDay(); }
+  else if(was && !f.task.done){ unstampDone(f.task); S.points=Math.max(0,S.points-10); bump(-1); }
   save(); render();
 }
 function delTask(areaId,taskId){ const a=S.areas.find(x=>x.id===areaId); a.tasks=a.tasks.filter(t=>t.id!==taskId); save(); renderOverview(); renderHeader(); }
@@ -971,6 +1173,7 @@ function completeTask(){
   if(!currentTask) return;
   const f=getTask(currentTask.areaId,currentTask.taskId); if(!f) return;
   f.task.done=true;
+  stampDone(f.task);
   awardPoints(15);
   bump(1);
   registerActiveDay();
